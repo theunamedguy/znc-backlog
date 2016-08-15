@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <vector>
 #include <algorithm>
+#include <zlib.h>
 
 class CBacklogMod : public CModule {
 public:
@@ -98,7 +99,7 @@ void CBacklogMod::OnModCommand(const CString& sCommand) {
     if(reqLines <= 0) {
         reqLines = 150;
     }
-    reqLines = std::max(std::min(reqLines, 1000), 1);
+    reqLines = std::max(std::min(reqLines, 1024*1024*1024), 1);
 
     CString Path = GetNV("LogPath").substr(); // make copy
     Path.Replace("$NETWORK", Network);
@@ -141,9 +142,15 @@ void CBacklogMod::OnModCommand(const CString& sCommand) {
         }
 
         if (LogFile.Open()) {
+	  
+	  CString path = *it;
+	  gzFile gzf = gzopen(((std::string)path).c_str(), "r");
+      
             Lines.push_back("[00:00:00] <***> File: " + LogFile.GetShortName()); //Parse name to get date prettier?
             printedLines--;
-            while (LogFile.ReadLine(Line)) {
+	    char linebuf[1024];
+            while (gzgets(gzf, linebuf, sizeof(linebuf))) {
+		Line = linebuf;
                 try {
                     // is line a part/join/rename etc message (nick ***), do we want to print it?
                     // find nick by finding first whitespace, then moving one char right
@@ -157,6 +164,7 @@ void CBacklogMod::OnModCommand(const CString& sCommand) {
                     PutModule("Malformed log line found in " + *it + ": " + Line);
                 }
             }
+	      gzclose(gzf);
         } else {
             PutModule("Could not open log file [" + sCommand + "]: " + strerror(errno));
             continue;

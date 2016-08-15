@@ -1,3 +1,5 @@
+LIBS=-lz
+
 backlog: backlog.cpp
 	znc-buildmod backlog.cpp
 
